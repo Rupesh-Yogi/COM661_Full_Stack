@@ -1,100 +1,131 @@
+
 from flask import Flask, make_response, jsonify, request
+
 from pymongo import MongoClient
 from bson import ObjectId
 
-client = MongoClient("mongodb://localhost:27017")
+client = MongoClient("mongodb://localhost:27017/")
 db = client.bizDB
 businesses = db.biz
 
 app = Flask(__name__)
 
 
-@app.route("/", methods=["GET"])
-def index():
-    return make_response("<h1>Welcome to Flask</h1>", 200)
+# Routes (Endpoints)
 
 
-# GET all businesses (with paging)
-@app.route("/api/v1.0/businesses", methods=["GET"])
-def show_all_businesses():
+@app.route("/", methods=['GET'])
+def homePage():
+    return make_response("<h1>Hi Rupesh, This is Flask.</h1>", 200)
+
+
+@app.route("/test", methods=['GET'])
+def test():
+    return make_response(
+        jsonify({"Message": " Welcome to COM661"}), 200
+    )
+
+
+@app.route("/api/v1.0/businesses", methods=['GET'])
+def getAllBusinesses():
+
     page_num, page_size = 1, 5
 
     if request.args.get('pn'):
         page_num = int(request.args.get('pn'))
+
     if request.args.get('ps'):
         page_size = int(request.args.get('ps'))
 
     page_start = page_size * (page_num - 1)
 
     data_to_return = []
-    for business in businesses.find().skip(page_start).limit(page_size):
-        business["_id"] = str(business["_id"])
-        data_to_return.append(business)
+
+    for biz in businesses.find().skip(page_start).limit(page_size):
+        biz['_id'] = str(biz['_id'])
+
+        for review in biz.get('reviews', []):
+            if '_id' in review:
+                review['_id'] = str(review['_id'])
+
+        data_to_return.append(biz)
 
     return make_response(jsonify(data_to_return), 200)
 
 
-# GET one business by its _id
-@app.route("/api/v1.0/businesses/<string:id>", methods=["GET"])
-def show_one_business(id):
+@app.route("/api/v1.0/businesses/<string:id>", methods=['GET'])
+def getOneBusiness(id):
+
     if not ObjectId.is_valid(id):
-        return make_response(jsonify({"error": "Invalid business ID"}), 404)
+        return make_response(
+            jsonify({"Error": "Invalid Business ID"}), 400
+        )
 
-    business = businesses.find_one({"_id": ObjectId(id)})
-    if business is None:
-        return make_response(jsonify({"error": "Business not found"}), 404)
+    biz = businesses.find_one({"_id": ObjectId(id)})
 
-    business["_id"] = str(business["_id"])
-    return make_response(jsonify(business), 200)
+    if biz:
+        biz['_id'] = str(biz['_id'])
 
+        for review in biz.get('reviews', []):
+            if '_id' in review:
+                review['_id'] = str(review['_id'])
 
-# POST - add a new business
-@app.route("/api/v1.0/businesses", methods=["POST"])
-def add_business():
-    new_business = {
-        "name": request.form["name"],
-        "town": request.form["town"],
-        "rating": int(request.form["rating"]),
-        "reviews": []
-    }
-    result = businesses.insert_one(new_business)
-    new_link = "http://localhost:5001/api/v1.0/businesses/" + str(result.inserted_id)
-    return make_response(jsonify({"url": new_link}), 201)
+        return make_response(jsonify(biz), 200)
 
-
-# PUT - edit an existing business
-@app.route("/api/v1.0/businesses/<string:id>", methods=["PUT"])
-def edit_business(id):
-    if not ObjectId.is_valid(id):
-        return make_response(jsonify({"error": "Invalid business ID"}), 404)
-
-    result = businesses.update_one(
-        {"_id": ObjectId(id)},
-        {"$set": {
-            "name": request.form["name"],
-            "town": request.form["town"],
-            "rating": int(request.form["rating"])
-        }}
+    return make_response(
+        jsonify({"Error": "Invalid Business ID"}), 404
     )
-    if result.matched_count == 0:
-        return make_response(jsonify({"error": "Business not found"}), 404)
-
-    edited_link = "http://localhost:5001/api/v1.0/businesses/" + id
-    return make_response(jsonify({"url": edited_link}), 200)
 
 
-# DELETE - remove a business
-@app.route("/api/v1.0/businesses/<string:id>", methods=["DELETE"])
-def delete_business(id):
+@app.route("/api/v1.0/businesses/<string:id>/rating", methods=['GET'])
+def getOneBusinessRating(id):
+
     if not ObjectId.is_valid(id):
-        return make_response(jsonify({"error": "Invalid business ID"}), 404)
+        return make_response(
+            jsonify({"Error": "Invalid Business ID"}), 400
+        )
 
-    result = businesses.delete_one({"_id": ObjectId(id)})
-    if result.deleted_count == 0:
-        return make_response(jsonify({"error": "Business not found"}), 404)
+    biz = businesses.find_one(
+        {"_id": ObjectId(id)},
+        {"rating": 1}
+    )
 
-    return make_response(jsonify({"message": "Business removed successfully"}), 200)
+    if biz:
+        return make_response(jsonify(biz.get("rating")), 200)
 
+    return make_response(
+        jsonify({"Error": "Invalid Business ID"}), 404
+    )
+
+
+@app.route("/api/v1.0/businesses/<string:id>/reviews", methods=['GET'])
+def getOneBusinessReviews(id):
+
+    if not ObjectId.is_valid(id):
+        return make_response(
+            jsonify({"Error": "Invalid Business ID"}), 400
+        )
+
+    biz = businesses.find_one(
+        {"_id": ObjectId(id)},
+        {"reviews": 1}
+    )
+
+    if biz:
+        reviews = biz.get("reviews", [])
+
+        for review in reviews:
+            if '_id' in review:
+                review['_id'] = str(review['_id'])
+
+        return make_response(jsonify(reviews), 200)
+
+    return make_response(
+        jsonify({"Error": "Invalid Business ID"}), 404
+    )
+
+
+# Run the server
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(port=5001, debug=True)
