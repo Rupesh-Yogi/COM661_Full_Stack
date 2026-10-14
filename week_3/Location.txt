@@ -1,0 +1,8 @@
+    towns = ['London','Liverpool', 'Camden', 'Ilford',
+             'Manchester','Richmond','Portsmouth', 'Worthing',
+             'Belfast','Tower Hill']
+    
+    reviews_text = ['Good service', 'Poor service', 'Would not recommend', 'Could be better', 'Not worth the price', 'Excellent product',
+                    'Rude staff', 'Friendly staff', 'Good place, Worth the visit']
+    
+    usernames = ['user1','user2','user3','user4','user5','user6','user7','user8','user9','user0',]
